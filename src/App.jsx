@@ -3,7 +3,7 @@ import image from "../image";
 
 function App() {
 	const url = "https://192.168.11.6:5005/events";
-	const token = "687e48f6-ca5e-444f-acae-272fa1d49b37";
+	const token = "7b271e4d-51d4-4558-a27c-548a5ba26aab";
 
 	const [messages, setMessages] = useState([]);
 	const maximumRecords = 20;
@@ -42,14 +42,17 @@ function App() {
 						if (chunk.startsWith('data: {"event_type":')) {
 							try {
 								const data = JSON.parse(chunk.slice(5));
-								console.log(data);
-								await makeRequest(data);
-								setMessages((prevMessages) => {
-									if (prevMessages.length > maximumRecords) {
-										prevMessages.pop();
-									}
-									return [data, ...prevMessages];
-								});
+								console.log(data.event_type);
+								if (data.event_type === "appearance") {
+									// console.log(data);
+									setMessages((prevMessages) => {
+										if (prevMessages.length > maximumRecords) {
+											prevMessages.pop();
+										}
+										return [data, ...prevMessages];
+									});
+								}
+								// await makeRequest(data);
 							} catch (e) {
 								console.error("Failed to parse SSE data:");
 							}
@@ -95,10 +98,11 @@ function App() {
 						<p>
 							Type: {message.event_type} | Id: {message.event_id}
 						</p>
-						<p className="message">Message: {JSON.stringify(message)}</p>
+						{/* <p className="message">Message: {JSON.stringify(message)}</p> */}
 					</div>
+					{console.log(message.crop_data.face_crop_img)}
 					<img
-						src={image}
+						src={`data:image/jpeg;base64,${message.crop_data.face_crop_img}`}
 						alt="Red dot"
 					/>
 				</li>
