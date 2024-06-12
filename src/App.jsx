@@ -1,51 +1,109 @@
-import EventSource from "react-native-sse";
-
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import image from "../image";
 
 function App() {
 	const url = "https://192.168.11.6:5005/events";
-	const token = "86cad014-c7c4-4ad7-9437-8ec84b5aa155";
+	const token = "687e48f6-ca5e-444f-acae-272fa1d49b37";
+
+	const [messages, setMessages] = useState([]);
+	const maximumRecords = 20;
 
 	useEffect(() => {
-		const listen = async () => {
-			const es = new EventSource(url, {
-				headers: {
-					Authorization: {
-						toString: function () {
-							return "Bearer " + token;
-						},
+		const fetchSSE = async () => {
+			try {
+				const response = await fetch(url, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+						Accept: "text/event-stream",
 					},
-				},
-			});
+				});
 
-			es.addEventListener("open", () => {
-				console.log("Open SSE connection.");
-			});
-
-			es.addEventListener("message", (event) => {
-				console.log("New message event:", event.data);
-			});
-
-			es.addEventListener("error", (event) => {
-				if (event.type === "error") {
-					console.error("Connection error:", event.message);
-				} else if (event.type === "exception") {
-					console.error("Error:", event.message, event.error);
+				if (!response.ok) {
+					throw new Error("Network response was not ok");
 				}
-			});
 
-			es.addEventListener("close", () => {
-				console.log("Close SSE connection.");
-			});
+				const reader = response.body.getReader();
+				const decoder = new TextDecoder("utf-8");
+				let buffer = "";
+
+				reader.read().then(async function processText({ done, value }) {
+					if (done) {
+						console.log("Stream complete");
+						return;
+					}
+
+					buffer += decoder.decode(value, { stream: true });
+
+					let boundary = buffer.indexOf("\n");
+					while (boundary !== -1) {
+						const chunk = buffer.slice(0, boundary + 1).trim();
+						buffer = buffer.slice(boundary + 1);
+
+						if (chunk.startsWith('data: {"event_type":')) {
+							try {
+								const data = JSON.parse(chunk.slice(5));
+								console.log(data);
+								await makeRequest(data);
+								setMessages((prevMessages) => {
+									if (prevMessages.length > maximumRecords) {
+										prevMessages.pop();
+									}
+									return [data, ...prevMessages];
+								});
+							} catch (e) {
+								console.error("Failed to parse SSE data:");
+							}
+						}
+
+						boundary = buffer.indexOf("\n");
+					}
+
+					return reader.read().then(processText);
+				});
+			} catch (error) {
+				console.log("Error fetching SSE");
+			}
 		};
 
-		listen();
+		fetchSSE();
 	}, []);
 
+	const makeRequest = async (data) => {
+		try {
+			const response = await fetch("http://localhost/", {
+				method: "post",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(data),
+			});
+
+			console.log(response);
+		} catch (error) {
+			console.error("Fetch error: " + error);
+		}
+	};
+
 	return (
-		<>
-			<h1>Teste</h1>
-		</>
+		<div className="container">
+			{messages.map((message, index) => (
+				<li
+					key={index}
+					className="listItem"
+				>
+					<div>
+						<p>
+							Type: {message.event_type} | Id: {message.event_id}
+						</p>
+						<p className="message">Message: {JSON.stringify(message)}</p>
+					</div>
+					<img
+						src={image}
+						alt="Red dot"
+					/>
+				</li>
+			))}
+		</div>
 	);
 }
 
