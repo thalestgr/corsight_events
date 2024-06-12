@@ -42,17 +42,27 @@ function App() {
 						if (chunk.startsWith('data: {"event_type":')) {
 							try {
 								const data = JSON.parse(chunk.slice(5));
-								console.log(data.event_type);
 								if (data.event_type === "appearance") {
-									// console.log(data);
-									setMessages((prevMessages) => {
-										if (prevMessages.length > maximumRecords) {
-											prevMessages.pop();
-										}
-										return [data, ...prevMessages];
-									});
+									if (data.match_data.watchlists) {
+										data.match_data.watchlists.forEach((list) => {
+											let found = false;
+											if (list.match_outcome === "matched") {
+												found = true;
+											}
+
+											if (found) {
+												console.log(data);
+												// await makeRequest(data);
+												setMessages((prevMessages) => {
+													if (prevMessages.length > maximumRecords) {
+														prevMessages.pop();
+													}
+													return [data, ...prevMessages];
+												});
+											}
+										});
+									}
 								}
-								// await makeRequest(data);
 							} catch (e) {
 								console.error("Failed to parse SSE data:");
 							}
@@ -95,12 +105,9 @@ function App() {
 					className="listItem"
 				>
 					<div>
-						<p>
-							Type: {message.event_type} | Id: {message.event_id}
-						</p>
-						{/* <p className="message">Message: {JSON.stringify(message)}</p> */}
+						<p>Id: {message.event_id}</p>
+						<p>{message.match_data.poi_display_name}</p>
 					</div>
-					{console.log(message.crop_data.face_crop_img)}
 					<img
 						src={`data:image/jpeg;base64,${message.crop_data.face_crop_img}`}
 						alt="Red dot"
